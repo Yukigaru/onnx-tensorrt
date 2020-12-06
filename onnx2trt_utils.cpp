@@ -322,7 +322,7 @@ bool convertOnnxWeights(
     // External Data
     if (dataLocation == 1)
     {
-        std::string location{""};
+        std::string location;
         int offset{0};
         int length{0};
 
@@ -574,10 +574,9 @@ bool convertWeightDescriptor(
         element_count *= shape.d[i];
     }
 
-    void* dataPtr;
+    void* dataPtr = (void*) (desc.buffer);
     size_t nbytes;
     int32_t dtype;
-    dataPtr = (void*) (desc.buffer);
     if (desc.dataType == ONNXIFI_DATATYPE_FLOAT32)
     {
         dtype = ::ONNX_NAMESPACE::TensorProto::FLOAT;
@@ -663,13 +662,14 @@ NodeImportResult elementwiseHelper(IImporterContext* ctx, ::ONNX_NAMESPACE::Node
 {
     ASSERT(!inputs.empty(), ErrorCode::kINVALID_NODE);
     ASSERT(elementwiseCheck(inputs, binary_op), ErrorCode::kUNSUPPORTED_NODE);
-    std::vector<nvinfer1::ITensor*> inputTensors;
     int maxNbDims = -1;
     for (auto input : inputs)
     {
         maxNbDims = std::max(maxNbDims, input.shape().nbDims);
     }
 
+    std::vector<nvinfer1::ITensor*> inputTensors;
+    inputTensors.reserve(inputs.size());
     for (auto input : inputs)
     {
         auto* tensor_ptr = &convertToTensor(input, ctx);
@@ -1091,8 +1091,7 @@ NodeImportResult lstmLegacyImporter(
                 const int dtype_size = getDtypeSize(weights.type);
                 const size_t len = num_directions * batch_size * hidden_size * dtype_size;
                 auto* source = reinterpret_cast<unsigned char*>(weights.values);
-                std::vector<unsigned char> buffer;
-                buffer.resize(len);
+                std::vector<unsigned char> buffer(len);
                 for (int i = 0; i < num_directions; i++)
                 {
                     for (int j = 0; j < batch_size; j++)
@@ -1276,6 +1275,7 @@ NodeImportResult lstmLegacyImporter(
     ASSERT(layer->getNbOutputs() == 3, ErrorCode::kINTERNAL_ERROR);
     ASSERT(node.output_size() <= 3, ErrorCode::kINVALID_NODE);
     std::vector<TensorOrWeights> outputs;
+    outputs.reserve(node.output_size());
     for (int i = 0; i < node.output_size(); i++)
     {
         auto* shuffle_layer = ctx->network()->addShuffle(*(layer->getOutput(i)));
@@ -1290,7 +1290,7 @@ NodeImportResult lstmLegacyImporter(
         }
         outputs.emplace_back(shuffle_layer->getOutput(0));
     }
-    return {outputs};
+    return {std::move(outputs)};
 }
 
 nvinfer1::Dims makeDims(int nbDims, int val)
@@ -1317,9 +1317,9 @@ bool parseExternalWeights(IImporterContext* ctx, std::string file, std::string p
 {
     // The weight paths in the ONNX model are relative paths to the main ONNX file.
 #ifdef _MSC_VER
-    size_t slash = path.rfind("\\");
+    size_t slash = path.rfind('\\');
 #else
-    size_t slash = path.rfind("/");
+    size_t slash = path.rfind('/');
 #endif
     if (slash != std::string::npos)
     {

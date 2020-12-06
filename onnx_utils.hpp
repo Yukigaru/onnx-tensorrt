@@ -37,6 +37,7 @@ template <typename OnnxDims>
 bool convertOnnxDims(OnnxDims const& onnxDims, nvinfer1::Dims& trtDims)
 {
     std::vector<int> onnxDims_vector;
+    onnxDims_vector.reserve(onnxDims.size());
     for (const auto& onnxDim : onnxDims)
     {
         const int dim = onnxDim.dim_param() == "" ? (onnxDim.dim_value() >= 0 ? onnxDim.dim_value() : -1) : -1;
