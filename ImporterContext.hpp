@@ -102,7 +102,7 @@ public:
     }
     virtual void insertRefitMap(std::string weightsName, std::string layerName, nvinfer1::WeightsRole role) override
     {
-        (*mRefitMap)[weightsName] = WeightsPair_t{layerName, role};
+        (*mRefitMap)[std::move(weightsName)] = WeightsPair_t{std::move(layerName), role};
     }
     // This actually handles weights as well, but is named this way to be consistent with the tensors()
     virtual void registerTensor(TensorOrWeights tensor, const std::string& basename) override
@@ -121,7 +121,7 @@ public:
             }
             else if (tensor.is_weights())
             {
-                mInitializerNames.push_back(uniqueName);
+                mInitializerNames.emplace_back(std::move(uniqueName));
                 const auto& weights = tensor.weights();
                 if (tensor.weights().type == ::ONNX_NAMESPACE::TensorProto::INT64)
                 {
@@ -141,7 +141,7 @@ public:
         // No layer will be added for Constant nodes in ONNX.
         if (layer)
         {
-            const std::string name = basename.empty() ? layer->getName() : basename;
+            const std::string &name = basename.empty() ? layer->getName() : basename;
             const std::string uniqueName = generateUniqueName(mLayerNames, name);
 
             auto* ctx = this; // To enable logging.
@@ -220,7 +220,7 @@ public:
     }
     void addOpset(std::string domain, int64_t version)
     {
-        _opsets.emplace(domain, version);
+        _opsets.emplace(std::move(domain), version);
     }
     virtual int64_t getOpsetVersion(const char* domain = "") const override
     {
@@ -245,7 +245,7 @@ private:
 
         while (namesSet.find(candidate) != namesSet.end())
         {
-            candidate = basename + "_" + std::to_string(mSuffixCounter);
+            candidate = basename + '_' + std::to_string(mSuffixCounter);
             ++mSuffixCounter;
         }
 
